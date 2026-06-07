@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "MobileAppDev",
-    "slug": "MobileAppDev",
+    "name": "Find My Way",
+    "slug": "find-my-way",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
