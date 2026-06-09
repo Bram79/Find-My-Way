@@ -9,6 +9,45 @@ export const styles = StyleSheet.create({
     height: "100%",
   },
 
+  modeRow: {
+    position: "absolute",
+    bottom: 92,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    justifyContent: "space-evenly",
+    paddingHorizontal: 18,
+    gap: 10,
+  },
+
+  modeRowLandscape: {
+    left: "45%",
+  },
+  pill: {
+    flex: 1,
+    alignItems: "center",
+    backgroundColor: "#eee",
+    borderRadius: 18,
+    paddingVertical: 9,
+    paddingHorizontal: 18,
+  },
+  pillActive: {
+    backgroundColor: "white",
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  pillText: {
+    fontSize: 14,
+    color: "#666",
+  },
+  pillTextActive: {
+    color: "#222",
+    fontWeight: "600",
+  },
+
   bottomBar: {
     position: "absolute",
     bottom: 0,
@@ -28,6 +67,11 @@ export const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: -2 },
+  },
+
+  bottomBarLandscape: {
+    left: "45%",
+    borderTopLeftRadius: 12,
   },
   startButton: {
     flexDirection: "row",

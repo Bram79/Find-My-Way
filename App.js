@@ -1,5 +1,11 @@
 import { useState, useEffect, useRef } from "react";
-import { Platform, View, Text, TouchableOpacity } from "react-native";
+import {
+  Platform,
+  View,
+  Text,
+  TouchableOpacity,
+  useWindowDimensions,
+} from "react-native";
 
 import * as Device from "expo-device";
 import * as Location from "expo-location";
@@ -12,14 +18,24 @@ import SearchBar from "./SearchBar";
 
 const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
 
+const TRAVEL_MODES = [
+  { key: "driving", label: "auto", icon: "car" },
+  { key: "bicycling", label: "fiets", icon: "bicycle" },
+  { key: "walking", label: "lopend", icon: "walk" },
+];
+
 export default function App() {
   const [location, setLocation] = useState(null);
   const [destination, setDestination] = useState(null);
   const [duration, setDuration] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
   const [routeCoords, setRouteCoords] = useState([]);
+  const [travelMode, setTravelMode] = useState("walking");
 
   const mapRef = useRef(null);
+
+  const { width, height } = useWindowDimensions();
+  const isLandscape = width > height;
 
   useEffect(() => {
     getCurrentLocation();
@@ -29,7 +45,7 @@ export default function App() {
     if (destination && location) {
       fetchRoute(destination);
     }
-  }, [destination]);
+  }, [destination, travelMode]);
 
   async function getCurrentLocation() {
     if (Platform.OS === "android" && !Device.isDevice) {
@@ -54,7 +70,7 @@ export default function App() {
     const url =
       `https://maps.googleapis.com/maps/api/directions/json` +
       `?origin=${origin}&destination=${destStr}` +
-      `&mode=walking&language=nl&key=${GOOGLE_API_KEY}`;
+      `&mode=${travelMode}&language=nl&key=${GOOGLE_API_KEY}`;
 
     try {
       const res = await fetch(url);
@@ -70,7 +86,7 @@ export default function App() {
         setRouteCoords(coords);
       } else {
         setDuration(null);
-        setRouteCoords([]); // oude lijn weghalen bij geen resultaat
+        setRouteCoords([]);
       }
     } catch (e) {
       setDuration(null);
@@ -131,22 +147,49 @@ export default function App() {
         </MapView>
       )}
 
-      <SearchBar onSelect={setDestination} />
+      <SearchBar onSelect={setDestination} isLandscape={isLandscape} />
 
       {destination && duration && (
-        <View style={styles.bottomBar}>
-          <TouchableOpacity
-            style={styles.startButton}
-            onPress={startNavigation}
-          >
-            <Ionicons name="navigate" size={18} color="#000000" />
-            <Text style={styles.startText}>Starten</Text>
-          </TouchableOpacity>
-          <View style={styles.durationBox}>
-            <Ionicons name="walk" size={22} color="#444" />
-            <Text style={styles.durationText}>{duration}</Text>
+        <>
+          <View style={[styles.modeRow, isLandscape && styles.modeRowLandscape]}>
+            {TRAVEL_MODES.map((mode) => {
+              const active = travelMode === mode.key;
+              return (
+                <TouchableOpacity
+                  key={mode.key}
+                  style={[styles.pill, active && styles.pillActive]}
+                  onPress={() => setTravelMode(mode.key)}
+                >
+                  <Text
+                    style={[styles.pillText, active && styles.pillTextActive]}
+                  >
+                    {mode.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
-        </View>
+
+          <View style={[styles.bottomBar, isLandscape && styles.bottomBarLandscape]}>
+            <TouchableOpacity
+              style={styles.startButton}
+              onPress={startNavigation}
+            >
+              <Ionicons name="navigate" size={18} color="#000000" />
+              <Text style={styles.startText}>Starten</Text>
+            </TouchableOpacity>
+            <View style={styles.durationBox}>
+              <Ionicons
+                name={
+                  TRAVEL_MODES.find((m) => m.key === travelMode)?.icon ?? "walk"
+                }
+                size={22}
+                color="#444"
+              />
+              <Text style={styles.durationText}>{duration}</Text>
+            </View>
+          </View>
+        </>
       )}
 
       {errorMsg && (

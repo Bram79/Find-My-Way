@@ -10,7 +10,7 @@ const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
 const RECENT_KEY = "recentSearches";
 const MAX_RECENT = 5;
 
-export default function SearchBar({ onSelect }) {
+export default function SearchBar({ onSelect, isLandscape }) {
   const ref = useRef(null);
   const [recents, setRecents] = useState([]);
   const [active, setActive] = useState(false);
@@ -30,9 +30,7 @@ export default function SearchBar({ onSelect }) {
     try {
       const raw = await AsyncStorage.getItem(RECENT_KEY);
       if (raw) setRecents(JSON.parse(raw));
-    } catch (e) {
-      // negeren: recente zoekopdrachten zijn niet kritiek
-    }
+    } catch (e) {}
   }
 
   async function saveRecent(place) {
@@ -82,7 +80,13 @@ export default function SearchBar({ onSelect }) {
   }
 
   return (
-    <View style={[s.wrap, active && s.wrapActive]}>
+    <View
+      style={[
+        s.wrap,
+        isLandscape && !active && s.wrapLandscape,
+        active && s.wrapActive,
+      ]}
+    >
       <GooglePlacesAutocomplete
         ref={ref}
         placeholder="Zoek hier"

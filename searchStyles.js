@@ -1,14 +1,18 @@
 import { StyleSheet } from "react-native";
 
 export const searchStyles = StyleSheet.create({
-  // Zwevende balk bovenaan (niet-actief).
   wrap: {
     position: "absolute",
     top: 60,
     left: 16,
     right: 16,
   },
-  // Volledig scherm (actief: tijdens zoeken/typen).
+
+  wrapLandscape: {
+    top: "5%",
+    left: "45%",
+  },
+
   wrapActive: {
     position: "absolute",
     top: 0,
@@ -33,7 +37,7 @@ export const searchStyles = StyleSheet.create({
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
   },
-  // In actieve modus: vlak, geen schaduw, met een lijntje onderaan.
+
   textInputContainerActive: {
     borderRadius: 0,
     elevation: 0,
@@ -69,7 +73,7 @@ export const searchStyles = StyleSheet.create({
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
   },
-  // In actieve modus: lijst vult de rest van het scherm.
+
   listViewActive: {
     flex: 1,
     marginTop: 0,
