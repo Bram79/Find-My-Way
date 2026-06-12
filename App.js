@@ -1,22 +1,19 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
-  Platform,
   View,
   Text,
   TouchableOpacity,
   useWindowDimensions,
 } from "react-native";
 
-import * as Device from "expo-device";
-import * as Location from "expo-location";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";
-import polyline from "@mapbox/polyline";
 
 import { styles } from "./styles";
 import SearchBar from "./SearchBar";
-
-const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+import { useCurrentLocation } from "./hooks/useCurrentLocation";
+import { useHeading } from "./hooks/useHeading";
+import { useRoute } from "./hooks/useRoute";
 
 const TRAVEL_MODES = [
   { key: "driving", label: "auto", icon: "car" },
@@ -25,92 +22,70 @@ const TRAVEL_MODES = [
 ];
 
 export default function App() {
-  const [location, setLocation] = useState(null);
   const [destination, setDestination] = useState(null);
-  const [duration, setDuration] = useState(null);
-  const [errorMsg, setErrorMsg] = useState(null);
-  const [routeCoords, setRouteCoords] = useState([]);
   const [travelMode, setTravelMode] = useState("walking");
+  const [navigating, setNavigating] = useState(false);
+  const [puckPos, setPuckPos] = useState(null);
+  const [mapHeading, setMapHeading] = useState(0);
 
   const mapRef = useRef(null);
+
+  const { location, errorMsg } = useCurrentLocation();
+  const { routeCoords, duration } = useRoute(
+    location,
+    destination,
+    travelMode,
+    mapRef
+  );
+  const heading = useHeading(navigating);
 
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
 
-  useEffect(() => {
-    getCurrentLocation();
-  }, []);
-
-  useEffect(() => {
-    if (destination && location) {
-      fetchRoute(destination);
-    }
-  }, [destination, travelMode]);
-
-  async function getCurrentLocation() {
-    if (Platform.OS === "android" && !Device.isDevice) {
-      setErrorMsg(
-        "Oops, this will not work on Snack in an Android Emulator. Try it on your device!"
-      );
-      return;
-    }
-    let { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== "granted") {
-      setErrorMsg("Permission to access location was denied");
-      return;
-    }
-
-    let current = await Location.getCurrentPositionAsync({});
-    setLocation(current);
-  }
-
-  async function fetchRoute(dest) {
-    const origin = `${location.coords.latitude},${location.coords.longitude}`;
-    const destStr = `${dest.latitude},${dest.longitude}`;
-    const url =
-      `https://maps.googleapis.com/maps/api/directions/json` +
-      `?origin=${origin}&destination=${destStr}` +
-      `&mode=${travelMode}&language=nl&key=${GOOGLE_API_KEY}`;
-
-    try {
-      const res = await fetch(url);
-      const json = await res.json();
-      if (json.status === "OK" && json.routes.length) {
-        setDuration(json.routes[0].legs[0].duration.text);
-
-        const points = polyline.decode(json.routes[0].overview_polyline.points);
-        const coords = points.map((point) => ({
-          latitude: point[0],
-          longitude: point[1],
-        }));
-        setRouteCoords(coords);
-      } else {
-        setDuration(null);
-        setRouteCoords([]);
-      }
-    } catch (e) {
-      setDuration(null);
-      setRouteCoords([]);
-    }
-
-    mapRef.current?.fitToCoordinates(
-      [
-        {
+  function centerOnUser() {
+    mapRef.current?.animateCamera(
+      {
+        center: {
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
         },
-        { latitude: dest.latitude, longitude: dest.longitude },
-      ],
-      {
-        edgePadding: { top: 160, right: 60, bottom: 180, left: 60 },
-        animated: true,
-      }
+        heading: heading,
+        zoom: 18,
+        altitude: 300,
+      },
+      { duration: 800 }
     );
   }
 
   function startNavigation() {
-    // TODO: hier komt later de echte stap-voor-stap navigatie.
+    setNavigating(true);
+    centerOnUser();
   }
+
+  function stopNavigation() {
+    setNavigating(false);
+  }
+
+  function updatePuckPosition() {
+    if (!navigating || !location || !mapRef.current) return;
+
+    mapRef.current
+      .pointForCoordinate({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      })
+      .then(setPuckPos)
+      .catch(() => {});
+
+    mapRef.current
+      .getCamera()
+      .then((camera) => setMapHeading(camera.heading))
+      .catch(() => {});
+  }
+
+  useEffect(() => {
+    updatePuckPosition();
+  }, [location, navigating]);
 
   return (
     <View style={styles.container}>
@@ -118,8 +93,11 @@ export default function App() {
         <MapView
           ref={mapRef}
           style={styles.map}
-          showsUserLocation={true}
+          showsUserLocation={!navigating}
           showsMyLocationButton={false}
+          showsCompass={false}
+          onRegionChange={updatePuckPosition}
+          onRegionChangeComplete={updatePuckPosition}
           initialRegion={{
             latitude: location.coords.latitude,
             longitude: location.coords.longitude,
@@ -147,11 +125,38 @@ export default function App() {
         </MapView>
       )}
 
-      <SearchBar onSelect={setDestination} isLandscape={isLandscape} />
+      {navigating && (
+        <View pointerEvents="none" style={styles.puckOverlay}>
+          <View
+            style={[
+              styles.puck,
+              {
+                position: "absolute",
+                left: (puckPos?.x ?? width / 2) - 19,
+                top: (puckPos?.y ?? height / 2) - 19,
+                transform: [{ rotate: `${heading - mapHeading}deg` }],
+              },
+            ]}
+          >
+            <Ionicons
+              name="navigate"
+              size={22}
+              color="#4285F4"
+              style={styles.puckArrow}
+            />
+          </View>
+        </View>
+      )}
 
-      {destination && duration && (
+      {!navigating && (
+        <SearchBar onSelect={setDestination} isLandscape={isLandscape} />
+      )}
+
+      {destination && duration && !navigating && (
         <>
-          <View style={[styles.modeRow, isLandscape && styles.modeRowLandscape]}>
+          <View
+            style={[styles.modeRow, isLandscape && styles.modeRowLandscape]}
+          >
             {TRAVEL_MODES.map((mode) => {
               const active = travelMode === mode.key;
               return (
@@ -169,8 +174,9 @@ export default function App() {
               );
             })}
           </View>
-
-          <View style={[styles.bottomBar, isLandscape && styles.bottomBarLandscape]}>
+          <View
+            style={[styles.bottomBar, isLandscape && styles.bottomBarLandscape]}
+          >
             <TouchableOpacity
               style={styles.startButton}
               onPress={startNavigation}
@@ -190,6 +196,40 @@ export default function App() {
             </View>
           </View>
         </>
+      )}
+
+      {navigating && (
+        <TouchableOpacity
+          style={[
+            styles.centerButton,
+            isLandscape && styles.centerButtonLandscape,
+          ]}
+          onPress={centerOnUser}
+        >
+          <Ionicons name="navigate" size={22} style={styles.puckArrow} />
+          <Text style={styles.centerText}>Centreren</Text>
+        </TouchableOpacity>
+      )}
+
+      {navigating && (
+        <View
+          style={[styles.bottomBar, isLandscape && styles.bottomBarLandscape]}
+        >
+          <TouchableOpacity style={styles.stopButton} onPress={stopNavigation}>
+            <Ionicons name="close" size={18} color="#e53935" />
+            <Text style={styles.stopText}>Stoppen</Text>
+          </TouchableOpacity>
+          <View style={styles.durationBox}>
+            <Ionicons
+              name={
+                TRAVEL_MODES.find((m) => m.key === travelMode)?.icon ?? "walk"
+              }
+              size={22}
+              color="#444"
+            />
+            <Text style={styles.durationText}>{duration}</Text>
+          </View>
+        </View>
       )}
 
       {errorMsg && (

@@ -51,11 +51,6 @@ export const searchStyles = StyleSheet.create({
     height: 50,
     justifyContent: "center",
   },
-  clearButton: {
-    paddingHorizontal: 12,
-    height: 50,
-    justifyContent: "center",
-  },
   textInput: {
     flex: 1,
     height: 50,
